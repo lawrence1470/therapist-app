@@ -1,75 +1,127 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState } from "react";
+import { ScrollView, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { SpeechHeader } from "@/components/speech/header";
+import { HistoryList } from "@/components/speech/history-list";
+import { ThemedView } from "@/components/ThemedView";
+import { VoiceRecorder } from "@/components/VoiceRecorder";
 
-export default function HomeScreen() {
+export default function SpeechScreen() {
+  const [transcriptHistory, setTranscriptHistory] = useState<string[]>([]);
+
+  const handleTranscriptReceived = (transcript: string) => {
+    if (transcript.trim()) {
+      setTranscriptHistory((prev) => [transcript, ...prev].slice(0, 10)); // Keep last 10 transcripts
+    }
+  };
+
+  const clearHistory = () => {
+    setTranscriptHistory([]);
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <SpeechHeader />
+
+        {/* Voice Recorder */}
+        <ThemedView style={styles.speechContainer}>
+          <VoiceRecorder
+            onTranscriptReceived={handleTranscriptReceived}
+            placeholder="Tap the microphone to start recording your speech exercises"
+          />
+        </ThemedView>
+
+        {/* Transcript History */}
+        <HistoryList transcripts={transcriptHistory} onClear={clearHistory} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    gap: 24,
+  },
+  header: {
+    alignItems: "center",
+    gap: 8,
+    paddingBottom: 8,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+  },
+  subtitle: {
+    fontSize: 16,
+    opacity: 0.7,
+    textAlign: "center",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  speechContainer: {
+    minHeight: 300,
+  },
+  historyContainer: {
+    gap: 12,
+  },
+  historyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  clearHistoryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    padding: 8,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderRadius: 8,
+  },
+  clearHistoryText: {
+    color: "#ef4444",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  historyList: {
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  historyItem: {
+    padding: 12,
+    backgroundColor: "rgba(107, 114, 128, 0.05)",
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: "#3b82f6",
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  historyItemText: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  setupContainer: {
+    gap: 12,
+  },
+  setupContent: {
+    gap: 16,
+  },
+  setupText: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.8,
+  },
+  setupBold: {
+    fontWeight: "600",
+    opacity: 1,
   },
 });
