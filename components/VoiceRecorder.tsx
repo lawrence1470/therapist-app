@@ -1,32 +1,41 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
-import SpeechService, { AudioRecording } from "../services/SpeechService";
+import SpeechService, {
+  AudioRecording,
+  TherapyResponse,
+} from "../services/SpeechService";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 
 interface VoiceRecorderProps {
-  onTranscriptReceived?: (transcript: string) => void;
+  onConversationUpdate?: (userMessage: string, therapyResponse: string) => void;
   placeholder?: string;
 }
 
 interface RecorderState {
   isRecording: boolean;
   isProcessing: boolean;
+  isGeneratingResponse: boolean;
+  isPlayingResponse: boolean;
   transcript: string;
+  therapyResponse: TherapyResponse | null;
   error: string | null;
   hasPermission: boolean;
   currentRecording: AudioRecording | null;
 }
 
 export function VoiceRecorder({
-  onTranscriptReceived,
-  placeholder = "Tap to record your voice...",
+  onConversationUpdate,
+  placeholder = "Tap to start your therapy session...",
 }: VoiceRecorderProps) {
   const [state, setState] = useState<RecorderState>({
     isRecording: false,
     isProcessing: false,
+    isGeneratingResponse: false,
+    isPlayingResponse: false,
     transcript: "",
+    therapyResponse: null,
     error: null,
     hasPermission: false,
     currentRecording: null,
@@ -53,7 +62,13 @@ export function VoiceRecorder({
   // Start recording
   const startRecording = useCallback(async () => {
     try {
-      setState((prev) => ({ ...prev, isRecording: true, error: null }));
+      setState((prev) => ({
+        ...prev,
+        isRecording: true,
+        error: null,
+        transcript: "",
+        therapyResponse: null,
+      }));
       await SpeechService.startRecording();
     } catch (error) {
       const errorMessage =
@@ -67,10 +82,12 @@ export function VoiceRecorder({
     }
   }, []);
 
-  // Stop recording and transcribe
+  // Stop recording and process therapy conversation
   const stopRecording = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, isRecording: false, isProcessing: true }));
+
+      // Step 1: Stop recording and transcribe
       const recording = await SpeechService.stopRecording();
       setState((prev) => ({ ...prev, currentRecording: recording }));
 
@@ -81,9 +98,33 @@ export function VoiceRecorder({
         ...prev,
         transcript,
         isProcessing: false,
+        isGeneratingResponse: true,
+      }));
+
+      // Step 2 & 3: Get therapy response and convert to speech
+      const therapyResponse = await SpeechService.processTherapyConversation(
+        transcript
+      );
+      setState((prev) => ({
+        ...prev,
+        therapyResponse,
+        isGeneratingResponse: false,
+        isPlayingResponse: true,
         error: null,
       }));
-      onTranscriptReceived?.(transcript);
+
+      // Step 4: Play the audio response
+      if (therapyResponse.audioUri) {
+        await SpeechService.playAudio(therapyResponse.audioUri);
+      }
+
+      setState((prev) => ({
+        ...prev,
+        isPlayingResponse: false,
+      }));
+
+      // Notify parent component
+      onConversationUpdate?.(transcript, therapyResponse.text);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to process recording";
@@ -91,11 +132,13 @@ export function VoiceRecorder({
         ...prev,
         isRecording: false,
         isProcessing: false,
+        isGeneratingResponse: false,
+        isPlayingResponse: false,
         error: errorMessage,
       }));
       Alert.alert("Processing Error", errorMessage);
     }
-  }, [onTranscriptReceived]);
+  }, [onConversationUpdate]);
 
   // Toggle recording
   const toggle = useCallback(async () => {
@@ -106,13 +149,45 @@ export function VoiceRecorder({
     }
   }, [state.isRecording, stopRecording, startRecording]);
 
-  // Clear transcript
-  const clearTranscript = useCallback(() => {
+  // Replay therapy response
+  const replayResponse = useCallback(async () => {
+    if (state.therapyResponse?.audioUri) {
+      try {
+        setState((prev) => ({ ...prev, isPlayingResponse: true, error: null }));
+        await SpeechService.playAudio(state.therapyResponse.audioUri!);
+        setState((prev) => ({ ...prev, isPlayingResponse: false }));
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to replay audio";
+        setState((prev) => ({
+          ...prev,
+          isPlayingResponse: false,
+          error: errorMessage,
+        }));
+      }
+    }
+  }, [state.therapyResponse]);
+
+  // Stop audio playback
+  const stopAudio = useCallback(async () => {
+    try {
+      await SpeechService.stopAudio();
+      setState((prev) => ({ ...prev, isPlayingResponse: false }));
+    } catch (error) {
+      console.error("Stop audio error:", error);
+    }
+  }, []);
+
+  // Clear conversation
+  const clearConversation = useCallback(() => {
+    SpeechService.stopAudio();
     setState((prev) => ({
       ...prev,
       transcript: "",
+      therapyResponse: null,
       error: null,
       currentRecording: null,
+      isPlayingResponse: false,
     }));
   }, []);
 
@@ -123,20 +198,23 @@ export function VoiceRecorder({
 
   const getButtonColor = () => {
     if (state.isRecording) return "#ef4444"; // Red when recording
-    if (state.isProcessing) return "#f59e0b"; // Orange when processing
+    if (state.isProcessing || state.isGeneratingResponse) return "#f59e0b"; // Orange when processing
     return "#3b82f6"; // Blue when idle
   };
 
   const getButtonIcon = () => {
-    if (state.isProcessing) return "hourglass-outline";
+    if (state.isProcessing || state.isGeneratingResponse)
+      return "hourglass-outline";
     if (state.isRecording) return "stop";
     return "mic";
   };
 
   const getStatusText = () => {
-    if (state.isProcessing) return "Processing with OpenAI Whisper...";
     if (state.isRecording) return "Recording... Tap to stop";
-    if (state.transcript) return "Transcription complete";
+    if (state.isProcessing) return "Transcribing with OpenAI Whisper...";
+    if (state.isGeneratingResponse) return "Generating therapy response...";
+    if (state.isPlayingResponse) return "Playing therapy response...";
+    if (state.therapyResponse) return "Therapy response ready";
     return placeholder;
   };
 
@@ -146,6 +224,9 @@ export function VoiceRecorder({
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
+
+  const isProcessingAny =
+    state.isProcessing || state.isGeneratingResponse || state.isPlayingResponse;
 
   return (
     <ThemedView style={styles.container}>
@@ -168,29 +249,68 @@ export function VoiceRecorder({
       <TouchableOpacity
         style={[styles.recordButton, { backgroundColor: getButtonColor() }]}
         onPress={toggle}
-        disabled={!state.hasPermission || state.isProcessing}
+        disabled={!state.hasPermission || isProcessingAny}
         activeOpacity={0.8}
       >
         <Ionicons name={getButtonIcon()} size={32} color="white" />
       </TouchableOpacity>
 
-      {/* Transcript Display */}
+      {/* User Transcript */}
       {state.transcript && (
         <View style={styles.transcriptContainer}>
-          <ThemedText style={styles.transcriptLabel}>Transcript:</ThemedText>
+          <ThemedText style={styles.transcriptLabel}>You said:</ThemedText>
           <View style={styles.transcriptBox}>
             <ThemedText style={styles.transcriptText}>
               {state.transcript}
             </ThemedText>
           </View>
-
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={clearTranscript}
-          >
-            <ThemedText style={styles.clearButtonText}>Clear</ThemedText>
-          </TouchableOpacity>
         </View>
+      )}
+
+      {/* Therapy Response */}
+      {state.therapyResponse && (
+        <View style={styles.responseContainer}>
+          <View style={styles.responseHeader}>
+            <ThemedText style={styles.responseLabel}>
+              Therapist response:
+            </ThemedText>
+            <View style={styles.audioControls}>
+              {state.isPlayingResponse ? (
+                <TouchableOpacity
+                  onPress={stopAudio}
+                  style={styles.audioButton}
+                >
+                  <Ionicons name="stop" size={20} color="#ef4444" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={replayResponse}
+                  style={styles.audioButton}
+                >
+                  <Ionicons name="play" size={20} color="#3b82f6" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          <View style={styles.responseBox}>
+            <ThemedText style={styles.responseText}>
+              {state.therapyResponse.text}
+            </ThemedText>
+          </View>
+        </View>
+      )}
+
+      {/* Clear Button */}
+      {(state.transcript || state.therapyResponse) && (
+        <TouchableOpacity
+          style={styles.clearButton}
+          onPress={clearConversation}
+          disabled={isProcessingAny}
+        >
+          <ThemedText style={styles.clearButtonText}>
+            Start New Session
+          </ThemedText>
+        </TouchableOpacity>
       )}
 
       {/* Permission Warning */}
@@ -260,12 +380,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  responseContainer: {
+    width: "100%",
+    gap: 12,
+  },
+  responseHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  responseLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  audioControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  audioButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  responseBox: {
+    backgroundColor: "rgba(59, 130, 246, 0.1)",
+    borderRadius: 12,
+    padding: 16,
+    minHeight: 80,
+  },
+  responseText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
   clearButton: {
-    alignSelf: "flex-end",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    alignSelf: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: "rgba(239, 68, 68, 0.1)",
     borderRadius: 8,
+    marginTop: 8,
   },
   clearButtonText: {
     color: "#ef4444",

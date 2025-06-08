@@ -1,23 +1,46 @@
 import React, { useState } from "react";
-import { ScrollView, StyleSheet } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SpeechHeader } from "@/components/speech/header";
-import { HistoryList } from "@/components/speech/history-list";
+import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
+import { Ionicons } from "@expo/vector-icons";
+
+interface ConversationEntry {
+  id: string;
+  userMessage: string;
+  therapistResponse: string;
+  timestamp: Date;
+}
 
 export default function SpeechScreen() {
-  const [transcriptHistory, setTranscriptHistory] = useState<string[]>([]);
+  const [conversationHistory, setConversationHistory] = useState<
+    ConversationEntry[]
+  >([]);
 
-  const handleTranscriptReceived = (transcript: string) => {
-    if (transcript.trim()) {
-      setTranscriptHistory((prev) => [transcript, ...prev].slice(0, 10)); // Keep last 10 transcripts
+  const handleConversationUpdate = (
+    userMessage: string,
+    therapistResponse: string
+  ) => {
+    if (userMessage.trim() && therapistResponse.trim()) {
+      const newEntry: ConversationEntry = {
+        id: Date.now().toString(),
+        userMessage,
+        therapistResponse,
+        timestamp: new Date(),
+      };
+      setConversationHistory((prev) => [newEntry, ...prev].slice(0, 5)); // Keep last 5 conversations
     }
   };
 
   const clearHistory = () => {
-    setTranscriptHistory([]);
+    setConversationHistory([]);
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
@@ -32,13 +55,60 @@ export default function SpeechScreen() {
         {/* Voice Recorder */}
         <ThemedView style={styles.speechContainer}>
           <VoiceRecorder
-            onTranscriptReceived={handleTranscriptReceived}
-            placeholder="Tap the microphone to start recording your speech exercises"
+            onConversationUpdate={handleConversationUpdate}
+            placeholder="Tap the microphone to start your therapy session"
           />
         </ThemedView>
 
-        {/* Transcript History */}
-        <HistoryList transcripts={transcriptHistory} onClear={clearHistory} />
+        {/* Conversation History */}
+        {conversationHistory.length > 0 && (
+          <ThemedView style={styles.historyContainer}>
+            <View style={styles.historyHeader}>
+              <ThemedText style={styles.sectionTitle}>
+                Recent Sessions
+              </ThemedText>
+              <TouchableOpacity
+                style={styles.clearHistoryButton}
+                onPress={clearHistory}
+              >
+                <Ionicons name="trash-outline" size={12} color="#ef4444" />
+                <ThemedText style={styles.clearHistoryText}>
+                  Clear History
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.historyList}>
+              {conversationHistory.map((conversation) => (
+                <View key={conversation.id} style={styles.conversationItem}>
+                  <View style={styles.conversationHeader}>
+                    <ThemedText style={styles.conversationTime}>
+                      {formatTime(conversation.timestamp)}
+                    </ThemedText>
+                  </View>
+
+                  {/* User Message */}
+                  <View style={styles.userMessageContainer}>
+                    <ThemedText style={styles.messageLabel}>You:</ThemedText>
+                    <ThemedText style={styles.userMessage}>
+                      {conversation.userMessage}
+                    </ThemedText>
+                  </View>
+
+                  {/* Therapist Response */}
+                  <View style={styles.therapistMessageContainer}>
+                    <ThemedText style={styles.messageLabel}>
+                      Therapist:
+                    </ThemedText>
+                    <ThemedText style={styles.therapistMessage}>
+                      {conversation.therapistResponse}
+                    </ThemedText>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </ThemedView>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -72,7 +142,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   speechContainer: {
-    minHeight: 300,
+    minHeight: 350,
   },
   historyContainer: {
     gap: 12,
@@ -96,32 +166,47 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   historyList: {
-    gap: 8,
-  },
-  historyItem: {
-    padding: 12,
-    backgroundColor: "rgba(107, 114, 128, 0.05)",
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: "#3b82f6",
-  },
-  historyItemText: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  setupContainer: {
-    gap: 12,
-  },
-  setupContent: {
     gap: 16,
   },
-  setupText: {
-    fontSize: 14,
-    lineHeight: 20,
+  conversationItem: {
+    padding: 16,
+    backgroundColor: "rgba(107, 114, 128, 0.05)",
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: "#3b82f6",
+    gap: 12,
+  },
+  conversationHeader: {
+    alignItems: "flex-end",
+  },
+  conversationTime: {
+    fontSize: 12,
+    opacity: 0.6,
+    fontWeight: "500",
+  },
+  userMessageContainer: {
+    gap: 4,
+  },
+  therapistMessageContainer: {
+    gap: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(107, 114, 128, 0.1)",
+  },
+  messageLabel: {
+    fontSize: 12,
+    fontWeight: "600",
     opacity: 0.8,
   },
-  setupBold: {
-    fontWeight: "600",
-    opacity: 1,
+  userMessage: {
+    fontSize: 14,
+    lineHeight: 18,
+    paddingLeft: 8,
+  },
+  therapistMessage: {
+    fontSize: 14,
+    lineHeight: 18,
+    paddingLeft: 8,
+    fontStyle: "italic",
   },
 });
