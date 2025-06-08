@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { SpeechHeader } from "@/components/speech/header";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
@@ -49,9 +48,6 @@ export default function SpeechScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <SpeechHeader />
-
         {/* Voice Recorder */}
         <ThemedView style={styles.speechContainer}>
           <VoiceRecorder
