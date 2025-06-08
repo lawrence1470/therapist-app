@@ -1,14 +1,22 @@
-import { View, type ViewProps } from 'react-native';
-
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { View, type ViewProps } from "react-native";
+import { useTheme } from "../contexts/ThemeContext";
 
 export type ThemedViewProps = ViewProps & {
-  lightColor?: string;
-  darkColor?: string;
+  background?: "primary" | "secondary" | "tertiary" | "card" | "overlay";
+  surface?: "primary" | "secondary" | "tertiary" | "overlay";
 };
 
-export function ThemedView({ style, lightColor, darkColor, ...otherProps }: ThemedViewProps) {
-  const backgroundColor = useThemeColor({ light: lightColor, dark: darkColor }, 'background');
+export function ThemedView({
+  style,
+  background = "primary",
+  surface,
+  ...otherProps
+}: ThemedViewProps) {
+  const { colors } = useTheme();
+
+  const backgroundColor = surface
+    ? colors.surface[surface]
+    : colors.background[background];
 
   return <View style={[{ backgroundColor }, style]} {...otherProps} />;
 }

@@ -1,33 +1,37 @@
-import { StyleSheet, Text, type TextProps } from 'react-native';
-
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { StyleSheet, Text, type TextProps } from "react-native";
+import { useTheme } from "../contexts/ThemeContext";
 
 export type ThemedTextProps = TextProps & {
-  lightColor?: string;
-  darkColor?: string;
-  type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
+  color?: "primary" | "secondary" | "muted" | "inverse" | "accent";
+  type?:
+    | "default"
+    | "title"
+    | "subtitle"
+    | "caption"
+    | "link"
+    | "body"
+    | "headline";
+  weight?: "light" | "normal" | "medium" | "semibold" | "bold";
 };
 
 export function ThemedText({
   style,
-  lightColor,
-  darkColor,
-  type = 'default',
+  color = "primary",
+  type = "default",
+  weight,
   ...rest
 }: ThemedTextProps) {
-  const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const { colors, typography } = useTheme();
+
+  const textColor = colors.text[color];
+  const typeStyle = styles[type];
+  const weightStyle = weight
+    ? { fontWeight: typography.weights[weight] }
+    : undefined;
 
   return (
     <Text
-      style={[
-        { color },
-        type === 'default' ? styles.default : undefined,
-        type === 'title' ? styles.title : undefined,
-        type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
-        type === 'subtitle' ? styles.subtitle : undefined,
-        type === 'link' ? styles.link : undefined,
-        style,
-      ]}
+      style={[{ color: textColor }, typeStyle, weightStyle, style]}
       {...rest}
     />
   );
@@ -38,23 +42,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  defaultSemiBold: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '600',
-  },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
-    lineHeight: 32,
+    fontWeight: "bold",
+    lineHeight: 40,
   },
   subtitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "600",
+    lineHeight: 28,
+  },
+  headline: {
+    fontSize: 24,
+    fontWeight: "bold",
+    lineHeight: 32,
+  },
+  body: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  caption: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   link: {
-    lineHeight: 30,
     fontSize: 16,
-    color: '#0a7ea4',
+    lineHeight: 24,
+    textDecorationLine: "underline",
   },
 });

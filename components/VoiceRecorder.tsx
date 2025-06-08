@@ -47,6 +47,8 @@ export function VoiceRecorder({
 }: VoiceRecorderProps) {
   console.log("🎉 VoiceRecorder component rendered!");
 
+  const { colors } = require("../contexts/ThemeContext").useTheme();
+
   const [state, setState] = useState<RecorderState>({
     isRecording: false,
     isProcessing: false,
@@ -329,7 +331,7 @@ export function VoiceRecorder({
 
   return (
     <LinearGradient
-      colors={["#0f172a", "#1e293b", "#334155"]}
+      colors={colors.background.gradient}
       style={styles.container}
     >
       {/* Header Status */}
@@ -387,7 +389,11 @@ export function VoiceRecorder({
         >
           <Animated.View style={[styles.mainCircle, animatedCircleStyle]}>
             <LinearGradient
-              colors={["#10b981", "#059669", "#047857"]}
+              colors={[
+                colors.interactive.primary,
+                colors.interactive.primaryPressed,
+                "#047857",
+              ]}
               style={styles.circleGradient}
             >
               <View style={styles.circleContent}>
